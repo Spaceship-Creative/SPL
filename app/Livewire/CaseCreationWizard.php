@@ -7,14 +7,18 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Session;
 use Livewire\Component;
 
 class CaseCreationWizard extends Component
 {
+    #[Session(key: 'wizard_current_step')]
     public $currentStep = 1;
+    
     public $totalSteps = 5;
     
-    // Case data properties
+    // Case data properties with session persistence
+    #[Session(key: 'wizard_case_data')]
     public $caseData = [
         'name' => '',
         'case_number' => '',
@@ -36,7 +40,8 @@ class CaseCreationWizard extends Component
         5 => 'Review & Confirm'
     ];
     
-    // Form data properties for each step
+    // Form data properties for each step with session persistence
+    #[Session(key: 'wizard_basic_info')]
     public $basicInfo = [
         'name' => '',
         'case_number' => '',
@@ -46,8 +51,13 @@ class CaseCreationWizard extends Component
         'description' => ''
     ];
     
+    #[Session(key: 'wizard_parties')]
     public $parties = [];
+    
+    #[Session(key: 'wizard_key_dates')]
     public $keyDates = [];
+    
+    #[Session(key: 'wizard_documents')]
     public $documents = [];
 
     protected $listeners = [
@@ -60,8 +70,42 @@ class CaseCreationWizard extends Component
 
     public function mount()
     {
-        // Initialize wizard state
-        $this->currentStep = 1;
+        // Initialize wizard state - session data will be automatically loaded
+        // If this is a fresh start, ensure we're on step 1
+        if ($this->currentStep < 1 || $this->currentStep > $this->totalSteps) {
+            $this->currentStep = 1;
+        }
+        
+        // Sync individual properties with caseData array for consistency
+        $this->syncDataFromSession();
+    }
+
+    /**
+     * Sync individual form properties with the main caseData array
+     */
+    private function syncDataFromSession()
+    {
+        // Sync basic info
+        if (!empty($this->basicInfo)) {
+            foreach ($this->basicInfo as $key => $value) {
+                if (!empty($value)) {
+                    $this->caseData[$key] = $value;
+                }
+            }
+        }
+        
+        // Sync other data
+        if (!empty($this->parties)) {
+            $this->caseData['parties'] = $this->parties;
+        }
+        
+        if (!empty($this->keyDates)) {
+            $this->caseData['key_dates'] = $this->keyDates;
+        }
+        
+        if (!empty($this->documents)) {
+            $this->caseData['documents'] = $this->documents;
+        }
     }
 
     /**
@@ -92,38 +136,21 @@ class CaseCreationWizard extends Component
     }
 
     /**
-     * Get user type display name for UI
+     * Get display name for user type
      */
     #[Computed]
     public function userTypeDisplay()
     {
-        return Auth::user()?->user_type_display ?? 'Pro-Se Litigant';
+        return Auth::user()?->getUserTypeDisplayAttribute() ?? 'Pro-Se Litigant';
     }
 
     public function nextStep()
     {
-        // For step 5 (review), go directly to submit
-        if ($this->currentStep === 5) {
-            $this->submitWizard();
-            return;
-        }
-
-        // Validate current step before proceeding
-        $isValid = match($this->currentStep) {
-            1 => $this->validateBasicInformation(),
-            2 => $this->validatePartyManagement(), 
-            3 => $this->validateKeyDates(),
-            4 => $this->validateDocumentUpload(),
-            default => false
-        };
-
-        if (!$isValid) {
-            return;
-        }
-
-        if ($this->currentStep < $this->totalSteps) {
-            $this->currentStep++;
-            $this->dispatch('step-changed', $this->currentStep);
+        if ($this->validateCurrentStep()) {
+            if ($this->currentStep < $this->totalSteps) {
+                $this->currentStep++;
+                $this->persistWizardState();
+            }
         }
     }
 
@@ -131,16 +158,65 @@ class CaseCreationWizard extends Component
     {
         if ($this->currentStep > 1) {
             $this->currentStep--;
-            $this->dispatch('step-changed', $this->currentStep);
+            $this->persistWizardState();
         }
     }
 
     public function goToStep($step)
     {
         if ($step >= 1 && $step <= $this->totalSteps) {
-            $this->currentStep = $step;
-            $this->dispatch('step-changed', $this->currentStep);
+            // Allow going back to any previous step or next step if current is valid
+            if ($step <= $this->currentStep || $this->validateCurrentStep()) {
+                $this->currentStep = $step;
+                $this->persistWizardState();
+            }
         }
+    }
+
+    /**
+     * Persist wizard state to session manually (in addition to automatic session attributes)
+     */
+    private function persistWizardState()
+    {
+        // The #[Session] attributes handle most persistence automatically,
+        // but we can add additional state management here if needed
+        session()->put('wizard_last_activity', now());
+    }
+
+    /**
+     * Clear wizard session data
+     */
+    public function clearWizardSession()
+    {
+        // Reset component properties first (this will also clear session via #[Session] attributes)
+        $this->currentStep = 1;
+        $this->caseData = [
+            'name' => '',
+            'case_number' => '',
+            'type' => '',
+            'jurisdiction' => '',
+            'venue' => '',
+            'description' => '',
+            'parties' => [],
+            'key_dates' => [],
+            'documents' => []
+        ];
+        $this->basicInfo = [
+            'name' => '',
+            'case_number' => '',
+            'type' => '',
+            'jurisdiction' => '',
+            'venue' => '',
+            'description' => ''
+        ];
+        $this->parties = [];
+        $this->keyDates = [];
+        $this->documents = [];
+        
+        // Clear additional session data that doesn't have #[Session] attributes
+        session()->forget([
+            'wizard_last_activity'
+        ]);
     }
 
     public function submitWizard()
@@ -170,12 +246,95 @@ class CaseCreationWizard extends Component
                 ]
             ]);
 
+            // Clear wizard session data after successful submission
+            $this->clearWizardSession();
+
             session()->flash('success', 'Case created successfully!');
             $this->redirect(route('cases.show', $legalCase), navigate: true);
             
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to create case. Please try again.');
         }
+    }
+
+    /**
+     * Get validation warnings for incomplete data
+     */
+    public function getValidationWarningsProperty()
+    {
+        $warnings = [];
+        
+        // Basic information warnings
+        if (empty($this->caseData['name'])) {
+            $warnings[] = 'Case name is required';
+        }
+        
+        if ($this->isLegalProfessional && empty($this->caseData['case_number'])) {
+            $warnings[] = 'Case number is required for legal professionals';
+        }
+        
+        if (empty($this->caseData['type'])) {
+            $warnings[] = 'Case type must be selected';
+        }
+        
+        if (empty($this->caseData['jurisdiction'])) {
+            $warnings[] = 'Jurisdiction is required';
+        }
+        
+        // Party warnings
+        $plaintiffs = collect($this->caseData['parties'])->where('type', 'plaintiff')->count();
+        $defendants = collect($this->caseData['parties'])->where('type', 'defendant')->count();
+        
+        if ($plaintiffs === 0) {
+            $warnings[] = 'At least one plaintiff is required';
+        }
+        
+        if ($defendants === 0) {
+            $warnings[] = 'At least one defendant is required';
+        }
+        
+        return $warnings;
+    }
+
+    /**
+     * Check if all required data is complete
+     */
+    public function getIsDataCompleteProperty()
+    {
+        return empty($this->validationWarnings);
+    }
+
+    // Event handlers for child component updates
+    #[On('basic-info-updated')]
+    public function updateBasicInfo($data)
+    {
+        $this->basicInfo = $data;
+        $this->caseData = array_merge($this->caseData, $data);
+        $this->persistWizardState();
+    }
+
+    #[On('updateParties')]
+    public function updateParties($parties)
+    {
+        $this->parties = $parties;
+        $this->caseData['parties'] = $parties;
+        $this->persistWizardState();
+    }
+
+    #[On('key-dates-updated')]
+    public function updateKeyDates($dates)
+    {
+        $this->keyDates = $dates;
+        $this->caseData['key_dates'] = $dates;
+        $this->persistWizardState();
+    }
+
+    #[On('documents-updated')]
+    public function updateDocuments($documents)
+    {
+        $this->documents = $documents;
+        $this->caseData['documents'] = $documents;
+        $this->persistWizardState();
     }
 
     private function validateBasicInformation()
@@ -218,16 +377,15 @@ class CaseCreationWizard extends Component
             return false;
         }
 
-        // Ensure we have at least one plaintiff and one defendant
-        $hasPlaintiff = collect($this->caseData['parties'])->contains('type', 'plaintiff');
-        $hasDefendant = collect($this->caseData['parties'])->contains('type', 'defendant');
-
-        if (!$hasPlaintiff) {
+        // Check for required parties
+        $plaintiffs = collect($this->caseData['parties'])->where('type', 'plaintiff');
+        if ($plaintiffs->isEmpty()) {
             session()->flash('error', 'Please add at least one plaintiff to the case.');
             return false;
         }
 
-        if (!$hasDefendant) {
+        $defendants = collect($this->caseData['parties'])->where('type', 'defendant');
+        if ($defendants->isEmpty()) {
             session()->flash('error', 'Please add at least one defendant to the case.');
             return false;
         }
@@ -237,24 +395,36 @@ class CaseCreationWizard extends Component
 
     private function validateKeyDates()
     {
-        // For legal professionals, dates are optional (they may set them later)
-        if ($this->isLegalProfessional) {
-            return true;
-        }
-
-        // For pro-se users, encourage at least one key date
-        if (empty($this->caseData['key_dates'])) {
+        // Key dates are optional but we can warn if none are provided
+        if (empty($this->caseData['key_dates']) && !$this->isLegalProfessional) {
             session()->flash('warning', 'Consider adding at least one important date for your case.');
         }
-
+        
         return true;
     }
 
-    private function validateDocumentUpload()
+    private function validateDocuments()
     {
-        // Document upload validation is optional for both user types
-        // Future implementation will handle actual file uploads
+        // Documents are optional for now
         return true;
+    }
+
+    private function validateCurrentStep()
+    {
+        switch ($this->currentStep) {
+            case 1:
+                return $this->validateBasicInformation();
+            case 2:
+                return $this->validatePartyManagement();
+            case 3:
+                return $this->validateKeyDates();
+            case 4:
+                return $this->validateDocuments();
+            case 5:
+                return true; // Review step
+            default:
+                return false;
+        }
     }
 
     private function validateAllSteps()
@@ -262,34 +432,7 @@ class CaseCreationWizard extends Component
         return $this->validateBasicInformation() && 
                $this->validatePartyManagement() && 
                $this->validateKeyDates() && 
-               $this->validateDocumentUpload();
-    }
-
-    // Event handlers for child component updates
-    public function updateBasicInfo($basicInfo)
-    {
-        $this->basicInfo = $basicInfo;
-        
-        // Sync with caseData for validation
-        $this->caseData = array_merge($this->caseData, $basicInfo);
-    }
-
-    public function updateParties($parties)
-    {
-        $this->parties = $parties;
-        $this->caseData['parties'] = $parties;
-    }
-
-    public function updateKeyDates($keyDates)
-    {
-        $this->keyDates = $keyDates;
-        $this->caseData['key_dates'] = $keyDates;
-    }
-
-    public function updateDocuments($documents)
-    {
-        $this->documents = $documents;
-        $this->caseData['documents'] = $documents;
+               $this->validateDocuments();
     }
 
     public function render()

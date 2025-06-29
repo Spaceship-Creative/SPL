@@ -13,4 +13,6 @@ class SessionConstants
     public const SMS_VERIFICATION_DTO = 'smsVerificationDto';
 
     public const DISMISSED_ANNOUNCEMENTS = 'dismissedAnnouncements';
+
+    public const CASE_CREATION_WIZARD_STATE = 'caseCreationWizardState';
 }

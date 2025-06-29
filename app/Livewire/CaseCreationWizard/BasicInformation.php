@@ -15,8 +15,7 @@ class BasicInformation extends Component
     #[Validate('required|string|min:3|max:255', message: 'Please enter a case name between 3 and 255 characters.')]
     public $name = '';
 
-    // Remove the attribute; dynamic validation in validateAll() / rules() stays as is
--   #[Validate('nullable|string|max:100', onUpdate: false)]
+    // Case number validation handled dynamically in rules() method
     public $caseNumber = '';
 
     #[Validate('required|string', message: 'Please select a case type.')]
