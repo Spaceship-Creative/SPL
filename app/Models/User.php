@@ -181,6 +181,14 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Two
     }
 
     /**
+     * Get the legal cases for the user.
+     */
+    public function legalCases(): HasMany
+    {
+        return $this->hasMany(LegalCase::class);
+    }
+
+    /**
      * Check if user is a legal professional
      */
     public function isLegalProfessional(): bool
