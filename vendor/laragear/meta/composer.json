@@ -1,0 +1,60 @@
+{
+    "name": "laragear/meta",
+    "description": "A Laravel Package helper for Laravel Packages",
+    "type": "library",
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "keywords": [
+        "laravel",
+        "package"
+    ],
+    "authors": [
+        {
+            "name": "Italo Israel Baeza Cabrera",
+            "email": "DarkGhostHunter@Gmail.com",
+            "homepage": "https://github.com/sponsors/DarkGhostHunter"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/Laragear/Meta",
+        "issues": "https://github.com/Laragear/Meta/issues"
+    },
+    "require": {
+        "php": "^8.1"
+    },
+    "require-dev": {
+        "laragear/meta-testing": "2.*",
+        "laravel/breeze": "1.*|2.*",
+        "orchestra/testbench": "8.*|9.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Laragear\\Meta\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests",
+            "App\\": "stubs/App",
+            "Services\\": "stubs/Services"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit --coverage-clover build/logs/clover.xml",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "funding": [
+        {
+            "type": "Github Sponsorship",
+            "url": "https://github.com/sponsors/DarkGhostHunter"
+        },
+        {
+            "type": "Paypal",
+            "url": "https://paypal.me/darkghosthunter"
+        }
+    ]
+}
