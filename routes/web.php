@@ -172,3 +172,23 @@ Route::controller(InvoiceController::class)
         Route::get('/generate/{transactionUuid}', 'generate')->name('invoice.generate');
         Route::get('/preview', 'preview')->name('invoice.preview');
     });
+
+// Case Management - Requires authentication
+Route::middleware(['auth'])->group(function () {
+    
+    // Case Creation Wizard - GET route for display
+    Route::get('/cases/create', [App\Http\Controllers\CaseController::class, 'create'])
+        ->name('cases.create');
+    
+    // Case Creation Wizard - Store route for Livewire submission (handles via redirect)
+    Route::get('/cases/store', [App\Http\Controllers\CaseController::class, 'store'])
+        ->name('cases.store');
+    
+    // Case Management (full resource routes except create, since we handle that separately)
+    Route::resource('cases', App\Http\Controllers\CaseController::class)->except(['create']);
+    
+    // Additional case-specific routes can be added here
+    // For example, when document management is implemented:
+    // Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
+    // Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
+});

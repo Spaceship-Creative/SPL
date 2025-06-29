@@ -215,7 +215,26 @@ class CaseCreationWizard extends Component
         
         // Clear additional session data that doesn't have #[Session] attributes
         session()->forget([
-            'wizard_last_activity'
+            'wizard_last_activity',
+            'case_creation_data'
+        ]);
+    }
+
+    /**
+     * Static method to clear wizard session data from outside the component
+     * This can be called by controllers or other parts of the application
+     */
+    public static function clearWizardSessionStatic()
+    {
+        session()->forget([
+            'wizard_current_step',
+            'wizard_case_data',
+            'wizard_basic_info',
+            'wizard_parties',
+            'wizard_key_dates',
+            'wizard_documents',
+            'wizard_last_activity',
+            'case_creation_data'
         ]);
     }
 
@@ -228,32 +247,34 @@ class CaseCreationWizard extends Component
         }
 
         try {
-            // Create the legal case
-            $legalCase = LegalCase::create([
-                'user_id' => Auth::id(),
-                'name' => $this->caseData['name'],
-                'case_number' => $this->caseData['case_number'],
-                'type' => $this->caseData['type'],
-                'jurisdiction' => $this->caseData['jurisdiction'],
-                'venue' => $this->caseData['venue'],
-                'description' => $this->caseData['description'],
-                'status' => 'pending',
-                'metadata' => [
-                    'parties' => $this->caseData['parties'],
-                    'key_dates' => $this->caseData['key_dates'],
-                    'documents' => $this->caseData['documents'],
-                    'created_by_user_type' => $this->userType
+            // Prepare the case data for submission to controller
+            // Ensure all data is properly formatted
+            $submissionData = [
+                'case_data' => [
+                    'name' => $this->caseData['name'],
+                    'case_number' => $this->caseData['case_number'] ?? null,
+                    'type' => $this->caseData['type'],
+                    'jurisdiction' => $this->caseData['jurisdiction'],
+                    'venue' => $this->caseData['venue'] ?? null,
+                    'description' => $this->caseData['description'] ?? null,
+                    'parties' => $this->caseData['parties'] ?? [],
+                    'dates' => $this->caseData['key_dates'] ?? [],
+                    'documents' => $this->caseData['documents'] ?? []
                 ]
-            ]);
+            ];
 
-            // Clear wizard session data after successful submission
-            $this->clearWizardSession();
+            // Store the data in session for the controller to access
+            session(['case_creation_data' => $submissionData]);
 
-            session()->flash('success', 'Case created successfully!');
-            $this->redirect(route('cases.show', $legalCase), navigate: true);
+            // Dispatch success event for any JavaScript listeners
+            $this->dispatch('wizard-completed', $submissionData);
+
+            // Redirect to the controller's store method
+            return $this->redirectRoute('cases.store', navigate: false);
             
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to create case. Please try again.');
+            session()->flash('error', 'Failed to prepare case data. Please try again.');
+            $this->dispatch('wizard-error', ['message' => $e->getMessage()]);
         }
     }
 
