@@ -26,6 +26,26 @@
                         </span>
                     @enderror
 
+                    <div class="my-2">
+                        <label for="user_type" class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ __('I am a...') }}
+                        </label>
+                        <select name="user_type" id="user_type" class="select select-bordered w-full" required>
+                            <option value="">{{ __('Select your role') }}</option>
+                            <option value="pro_se" {{ old('user_type') == 'pro_se' ? 'selected' : '' }}>
+                                {{ __('Pro-Se Litigant (Representing Myself)') }}
+                            </option>
+                            <option value="legal_professional" {{ old('user_type') == 'legal_professional' ? 'selected' : '' }}>
+                                {{ __('Legal Professional (Attorney/Paralegal)') }}
+                            </option>
+                        </select>
+                        @error('user_type')
+                        <span class="text-xs text-red-500" role="alert">
+                            {{ $message }}
+                        </span>
+                        @enderror
+                    </div>
+
                     <x-input.field label="{{ __('Password') }}" type="password" name="password" required class="my-2"  max-width="w-full"/>
 
                     @error('password')

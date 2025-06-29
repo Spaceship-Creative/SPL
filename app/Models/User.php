@@ -31,6 +31,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Two
         'name',
         'email',
         'password',
+        'user_type',
         'is_admin',
         'public_name',
         'is_blocked',
@@ -177,5 +178,33 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Two
     public function address(): HasOne
     {
         return $this->hasOne(Address::class);
+    }
+
+    /**
+     * Check if user is a legal professional
+     */
+    public function isLegalProfessional(): bool
+    {
+        return $this->user_type === 'legal_professional';
+    }
+
+    /**
+     * Check if user is a pro-se litigant
+     */
+    public function isProSe(): bool
+    {
+        return $this->user_type === 'pro_se';
+    }
+
+    /**
+     * Get user type display name
+     */
+    public function getUserTypeDisplayAttribute(): string
+    {
+        return match($this->user_type) {
+            'legal_professional' => 'Legal Professional',
+            'pro_se' => 'Pro-Se Litigant',
+            default => 'Unknown'
+        };
     }
 }

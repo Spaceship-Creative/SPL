@@ -24,6 +24,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => Hash::make('password'),
             'remember_token' => Str::random(10),
+            'user_type' => fake()->randomElement(['legal_professional', 'pro_se']),
             'is_admin' => false,
         ];
     }

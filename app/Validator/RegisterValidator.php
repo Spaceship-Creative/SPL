@@ -12,6 +12,7 @@ class RegisterValidator
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8'],
+            'user_type' => ['required', 'string', 'in:legal_professional,pro_se'],
         ];
 
         if ($passwordConfirmed) {

@@ -13,6 +13,7 @@ class UserService
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'user_type' => $data['user_type'] ?? 'pro_se',
         ]);
     }
 
